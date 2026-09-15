@@ -31,6 +31,8 @@
   .headline .money small{font-size:14px;font-weight:600;margin-left:2px}
   .headline .sub{font-size:12px;color:var(--ink-2);margin-top:5px}
   .headline .sub i{font-style:normal;color:var(--ink);font-weight:600}
+  .headline .sub.gap{margin-top:2px;color:var(--stop);font-weight:600}
+  .headline .sub.gap:empty{display:none}
 
   section{background:var(--surface);border-radius:var(--radius);padding:4px 14px 12px;margin-bottom:14px;box-shadow:0 1px 0 var(--line)}
   h2{font-size:13px;font-weight:700;color:var(--ink-2);margin:12px 0 8px;letter-spacing:.02em}
@@ -129,6 +131,7 @@
       <div class="headline">
         <div class="money num"><span id="profit">0</span><small>円</small></div>
         <div class="sub">利益率 <i id="margin">0%</i>　時給 <i id="hourly">0円</i>　ROI <i id="roi">0%</i></div>
+        <div class="sub gap" id="slabGap"></div>
       </div>
     </div>
   </div>
@@ -447,23 +450,25 @@
       "年換算利回りは " + sorted[0].name + " " + sorted[0].annual.toFixed(0) + "%、" +
       sorted[1].name + " " + sorted[1].annual.toFixed(0) + "%。";
 
-    // slab
+    // slab（選択中の販路を表示）
+    var sel = results.filter(function(r){ return r.key===selected; })[0];
     var tm=v("targetMargin");
-    var hourlyOk = best.minutes<=0 || best.hourly>=v("targetHourly");
+    var hourlyOk = sel.minutes<=0 || sel.hourly>=v("targetHourly");
     var cls,label,sub;
-    if (best.profit<=0){ cls="stop"; label="見送り"; sub="全販路で赤字"; }
-    else if (best.margin>=tm && hourlyOk){ cls="go"; label=best.name; sub="基準クリア"; }
-    else { cls="hold"; label=best.name; sub=(best.margin<tm)?"利益率不足":"時給不足"; }
+    if (sel.profit<=0){ cls="stop"; label=sel.name; sub="赤字"; }
+    else if (sel.margin>=tm && hourlyOk){ cls="go"; label=sel.name; sub= sel.key===best.key ? "最有利・基準クリア" : "基準クリア"; }
+    else { cls="hold"; label=sel.name; sub=(sel.margin<tm)?"利益率不足":"時給不足"; }
     document.getElementById("slab").className="slab-inner "+cls;
     document.getElementById("verdict").textContent=label;
     document.getElementById("verdictSub").textContent=sub;
-    document.getElementById("profit").textContent=Math.round(best.profit).toLocaleString("ja-JP");
-    document.getElementById("margin").textContent=best.margin.toFixed(1)+"%";
-    document.getElementById("hourly").textContent=best.minutes>0?yen(best.hourly):"—";
-    document.getElementById("roi").textContent=best.roi.toFixed(0)+"%";
+    document.getElementById("profit").textContent=Math.round(sel.profit).toLocaleString("ja-JP");
+    document.getElementById("margin").textContent=sel.margin.toFixed(1)+"%";
+    document.getElementById("hourly").textContent=sel.minutes>0?yen(sel.hourly):"—";
+    document.getElementById("roi").textContent=sel.roi.toFixed(0)+"%";
+    document.getElementById("slabGap").textContent =
+      sel.key===best.key ? "" : "最有利の"+best.name+"より "+yen(best.profit-sel.profit)+" 少ない";
 
     // breakdown of selected
-    var sel = results.filter(function(r){ return r.key===selected; })[0];
     document.getElementById("bdTitle").textContent = sel.name+"の内訳";
     var fx=v("fx"), bd=document.getElementById("bd"); bd.innerHTML="";
     function line(label,val,cls2,pctTxt){
