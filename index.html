@@ -1,0 +1,586 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="利益判定">
+<title>出品前 利益判定</title>
+<style>
+  :root{
+    --ink:#161d26; --ink-2:#5a6672; --line:#d7dce2; --bg:#eceff3; --surface:#ffffff;
+    --go:#0d6b4a; --hold:#9a6508; --stop:#9e2a22; --focus:#2b4fd8; --radius:14px;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    background:var(--bg); color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Hiragino Kaku Gothic ProN","Noto Sans JP","Yu Gothic UI",sans-serif;
+    font-size:16px; line-height:1.5; -webkit-text-size-adjust:100%; padding:0 0 64px;
+  }
+  .wrap{max-width:480px;margin:0 auto;padding:0 14px}
+  .num{font-variant-numeric:tabular-nums;font-feature-settings:"tnum"}
+
+  .slab{position:sticky;top:0;z-index:20;margin:0 -14px 18px;padding:10px 14px 12px;background:var(--bg)}
+  .slab-inner{display:flex;align-items:stretch;background:var(--surface);border-radius:var(--radius);overflow:hidden;box-shadow:0 1px 0 var(--line), 0 6px 18px -12px rgba(22,29,38,.5)}
+  .rank{flex:0 0 96px;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#fff;padding:12px 6px;text-align:center}
+  .rank b{font-size:20px;font-weight:700;letter-spacing:.02em;line-height:1.2}
+  .rank span{font-size:11px;opacity:.85;margin-top:3px}
+  .go .rank{background:var(--go)}
+  .hold .rank{background:var(--hold)}
+  .stop .rank{background:var(--stop)}
+  .headline{flex:1;padding:11px 14px;min-width:0}
+  .headline .money{font-size:30px;font-weight:700;letter-spacing:-.02em;line-height:1.1}
+  .headline .money small{font-size:15px;font-weight:600;margin-left:2px}
+  .headline .sub{font-size:12.5px;color:var(--ink-2);margin-top:5px}
+  .headline .sub i{font-style:normal;color:var(--ink);font-weight:600}
+
+  section{background:var(--surface);border-radius:var(--radius);padding:4px 14px 12px;margin-bottom:14px;box-shadow:0 1px 0 var(--line)}
+  h2{font-size:13px;font-weight:700;color:var(--ink-2);margin:12px 0 8px;letter-spacing:.02em}
+  .row{display:flex;align-items:center;gap:10px;padding:7px 0;border-top:1px solid #eef1f4}
+  .row:first-of-type{border-top:0}
+  .row label{flex:1;font-size:14.5px;min-width:0}
+  .row label em{font-style:normal;display:block;font-size:11.5px;color:var(--ink-2);margin-top:1px}
+  .field{display:flex;align-items:center;gap:5px;flex:0 0 auto}
+  .field span{font-size:13px;color:var(--ink-2);width:14px;text-align:center}
+  input[type=number],input[type=text],select{
+    padding:9px 10px;font:inherit;font-variant-numeric:tabular-nums;
+    border:1px solid var(--line);border-radius:9px;background:#fbfcfd;color:var(--ink);
+  }
+  input[type=number]{width:104px;text-align:right;-moz-appearance:textfield}
+  input[type=number]::-webkit-outer-spin-button,
+  input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+  input:focus-visible,select:focus-visible,button:focus-visible{outline:2px solid var(--focus);outline-offset:1px}
+  input.narrow{width:76px}
+
+  .tg{position:relative;flex:0 0 auto}
+  .tg input{position:absolute;inset:0;opacity:0;width:100%;height:100%;margin:0}
+  .tg i{display:block;width:46px;height:27px;border-radius:99px;background:#cfd6de;transition:background .15s ease}
+  .tg i::after{content:"";position:absolute;top:3px;left:3px;width:21px;height:21px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.25);transition:transform .15s ease}
+  .tg input:checked + i{background:var(--go)}
+  .tg input:checked + i::after{transform:translateX(19px)}
+
+  .bd{border-top:1px solid #eef1f4;margin-top:6px;padding-top:8px}
+  .bd div{display:flex;justify-content:space-between;font-size:13.5px;padding:3px 0;color:var(--ink-2);gap:10px}
+  .bd div b{font-weight:600;color:var(--ink);font-variant-numeric:tabular-nums;white-space:nowrap}
+  .bd div.indent span{padding-left:11px}
+  .bd div.total{font-size:15px;color:var(--ink);font-weight:600;border-top:1px solid #eef1f4;margin-top:5px;padding-top:7px}
+  .bd div.subtotal{color:var(--ink);font-weight:600}
+  .pct{font-style:normal;font-size:12px;color:var(--ink-2);font-weight:400;font-variant-numeric:tabular-nums}
+  .bd div.subtotal .pct{color:var(--stop);font-weight:600;font-size:12.5px}
+
+  .limits{display:flex;gap:10px;margin-top:2px}
+  .limit{flex:1;border:1px solid var(--line);border-radius:11px;padding:9px 11px;background:#fbfcfd}
+  .limit p{margin:0;font-size:11.5px;color:var(--ink-2)}
+  .limit strong{display:block;font-size:19px;font-weight:700;margin-top:2px;font-variant-numeric:tabular-nums}
+  .limit em{display:block;font-style:normal;font-size:11.5px;color:var(--ink-2);margin-top:3px;font-variant-numeric:tabular-nums}
+  .limit em.warn{color:var(--stop);font-weight:600}
+
+  details{margin-bottom:14px}
+  details summary{
+    list-style:none;cursor:pointer;background:var(--surface);border-radius:var(--radius);
+    padding:13px 14px;font-size:14.5px;font-weight:600;box-shadow:0 1px 0 var(--line);
+    display:flex;justify-content:space-between;align-items:center;
+  }
+  details summary::-webkit-details-marker{display:none}
+  details summary::after{content:"開く";font-size:12.5px;font-weight:500;color:var(--ink-2)}
+  details[open] summary{border-radius:var(--radius) var(--radius) 0 0}
+  details[open] summary::after{content:"閉じる"}
+  details section{border-radius:0 0 var(--radius) var(--radius);margin-bottom:0}
+
+  .pgroup{display:flex;gap:8px;padding:7px 0;align-items:center}
+  .pgroup select{flex:1;min-width:0}
+  .pgroup input[type=text]{flex:1;min-width:0}
+  button.act{
+    font:inherit;font-size:13.5px;padding:9px 13px;white-space:nowrap;
+    border:1px solid var(--line);border-radius:9px;background:#fbfcfd;color:var(--ink);
+  }
+  button.act.primary{background:var(--ink);border-color:var(--ink);color:#fff;font-weight:600}
+  button.act.danger{color:var(--stop)}
+  .status{font-size:12px;color:var(--ink-2);margin:6px 0 0;min-height:18px}
+  #transfer{
+    width:100%;margin-top:8px;height:64px;padding:9px 10px;font:inherit;font-size:12px;
+    border:1px solid var(--line);border-radius:9px;background:#fbfcfd;color:var(--ink);resize:vertical;
+  }
+  .status.ok{color:var(--go)}
+  .status.ng{color:var(--stop)}
+  .reset{display:block;width:100%;margin-top:10px;padding:11px;font:inherit;font-size:13.5px;color:var(--ink-2);background:transparent;border:1px solid var(--line);border-radius:10px}
+  .note{font-size:12px;color:var(--ink-2);line-height:1.6;padding:4px 2px 0}
+  @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<div class="wrap">
+  <div class="slab">
+    <div class="slab-inner go" id="slab">
+      <div class="rank"><b id="verdict">出品</b><span id="verdictSub">判定</span></div>
+      <div class="headline">
+        <div class="money num"><span id="profit">0</span><small>円</small></div>
+        <div class="sub">利益率 <i id="margin">0%</i>　時給 <i id="hourly">0円</i>　ROI <i id="roi">0%</i></div>
+      </div>
+    </div>
+  </div>
+
+  <section>
+    <h2>売る</h2>
+    <div class="row">
+      <label>売値<em>商品価格</em></label>
+      <div class="field"><span>$</span><input type="number" inputmode="decimal" id="price" value="60"></div>
+    </div>
+    <div class="row">
+      <label>買い手が払う送料<em>送料無料なら0</em></label>
+      <div class="field"><span>$</span><input type="number" inputmode="decimal" id="shipCharged" value="0"></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>かかる</h2>
+    <div class="row">
+      <label>仕入値<em>税込</em></label>
+      <div class="field"><span>¥</span><input type="number" inputmode="numeric" id="cost" value="4000"></div>
+    </div>
+    <div class="row">
+      <label>国際送料<em>実費</em></label>
+      <div class="field"><span>¥</span><input type="number" inputmode="numeric" id="shipCost" value="1600"></div>
+    </div>
+    <div class="row">
+      <label>梱包・国内送料<em>資材、仕入の送料</em></label>
+      <div class="field"><span>¥</span><input type="number" inputmode="numeric" id="packing" value="250"></div>
+    </div>
+    <div class="row">
+      <label>作業時間<em>撮影・出品・梱包・発送</em></label>
+      <div class="field"><input type="number" inputmode="numeric" id="minutes" class="narrow" value="15"><span>分</span></div>
+    </div>
+
+    <div class="bd">
+      <div><span>売上</span><b id="bdRevenue">0円</b></div>
+      <div class="indent"><span>落札手数料 <em class="pct" id="pctFvf">0%</em></span><b id="bdFvf">0円</b></div>
+      <div class="indent"><span>海外決済 <em class="pct" id="pctIntl">0%</em></span><b id="bdIntl">0円</b></div>
+      <div class="indent" id="rowAds"><span>広告費 <em class="pct" id="pctAds">0%</em></span><b id="bdAds">0円</b></div>
+      <div class="indent"><span>手数料の消費税</span><b id="bdTax">0円</b></div>
+      <div class="indent"><span>Payoneer出金 <em class="pct" id="pctPay">0%</em></span><b id="bdPay">0円</b></div>
+      <div class="indent" id="rowSpread"><span>為替スプレッド <em class="pct" id="pctSpread">0%</em></span><b id="bdSpread">0円</b></div>
+      <div class="subtotal"><span>手数料合計 <em class="pct" id="pctTotal">0%</em></span><b id="bdTotalFee">0円</b></div>
+      <div><span>入金額</span><b id="bdPayout">0円</b></div>
+      <div><span>原価・送料・資材</span><b id="bdCost">0円</b></div>
+      <div id="bdRefundRow"><span>消費税還付</span><b id="bdRefund">0円</b></div>
+      <div class="total"><span>手取り利益</span><b id="bdProfit">0円</b></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>この条件での限界値</h2>
+    <div class="limits">
+      <div class="limit">
+        <p>仕入上限（目標達成）</p>
+        <strong class="num" id="maxCost">0円</strong>
+        <em id="maxCostSub">利益 0円</em>
+      </div>
+      <div class="limit">
+        <p>最低売値（目標達成）</p>
+        <strong class="num" id="minPrice">$0</strong>
+        <em id="minPriceSub">利益 0円</em>
+      </div>
+    </div>
+    <div class="limits" style="margin-top:10px">
+      <div class="limit">
+        <p>赤字になる仕入</p>
+        <strong class="num" id="beCost">0円</strong>
+        <em id="beCostSub">余裕 0円</em>
+      </div>
+      <div class="limit">
+        <p>赤字になる売値</p>
+        <strong class="num" id="bePrice">$0</strong>
+        <em id="bePriceSub">余裕 $0</em>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>条件の保存</h2>
+    <div class="pgroup">
+      <select id="presetSelect"><option value="">保存した条件を選ぶ</option></select>
+      <button class="act" id="presetLoad">読込</button>
+    </div>
+    <div class="pgroup">
+      <input type="text" id="presetName" placeholder="名前（例: ワンピース SR）">
+      <button class="act primary" id="presetSave">保存</button>
+    </div>
+    <div class="pgroup">
+      <button class="act" id="pinDefaults" style="flex:1">今の値を初期値にする</button>
+      <button class="act danger" id="presetDelete">選択中を削除</button>
+    </div>
+    <div class="pgroup">
+      <button class="act" id="exportBtn" style="flex:1">書き出す</button>
+      <button class="act" id="importBtn" style="flex:1">貼り付けて取り込む</button>
+    </div>
+    <textarea id="transfer" placeholder="「書き出す」を押すとここに設定が出ます。別の端末ではここに貼り付けて「貼り付けて取り込む」"></textarea>
+    <p class="status" id="status"></p>
+  </section>
+
+  <details id="settings">
+    <summary>手数料・レート・判定基準</summary>
+    <section>
+      <h2>落札手数料</h2>
+      <div class="row">
+        <label>境目以下の部分</label>
+        <div class="field"><input type="number" inputmode="decimal" id="fvf1" class="narrow" value="12.35"><span>%</span></div>
+      </div>
+      <div class="row">
+        <label>境目超の部分</label>
+        <div class="field"><input type="number" inputmode="decimal" id="fvf2" class="narrow" value="2.35"><span>%</span></div>
+      </div>
+      <div class="row">
+        <label>料率が下がる境目</label>
+        <div class="field"><span>$</span><input type="number" inputmode="decimal" id="tier" value="2500"></div>
+      </div>
+      <div class="row">
+        <label>定額（$10超の注文）</label>
+        <div class="field"><span>$</span><input type="number" inputmode="decimal" id="fixedHigh" class="narrow" value="0.40"></div>
+      </div>
+      <div class="row">
+        <label>定額（$10以下の注文）</label>
+        <div class="field"><span>$</span><input type="number" inputmode="decimal" id="fixedLow" class="narrow" value="0.30"></div>
+      </div>
+
+      <h2>その他の手数料</h2>
+      <div class="row">
+        <label>海外決済手数料<em>保守側</em></label>
+        <div class="field"><input type="number" inputmode="decimal" id="intlFee" class="narrow" value="1.65"><span>%</span></div>
+      </div>
+      <div class="row">
+        <label>広告費率<em>Promoted Listings</em></label>
+        <div class="field"><input type="number" inputmode="decimal" id="adFee" class="narrow" value="2.2"><span>%</span></div>
+      </div>
+      <div class="row">
+        <label>広告賦課率<em>広告経由の成約比率</em></label>
+        <div class="field"><input type="number" inputmode="decimal" id="adShare" class="narrow" value="100"><span>%</span></div>
+      </div>
+      <div class="row">
+        <label>手数料への消費税</label>
+        <div class="field"><input type="number" inputmode="decimal" id="taxRate" class="narrow" value="10"><span>%</span></div>
+      </div>
+      <div class="row">
+        <label>Payoneer出金<em>控除後の残額に適用</em></label>
+        <div class="field"><input type="number" inputmode="decimal" id="payoneer" class="narrow" value="2"><span>%</span></div>
+      </div>
+
+      <h2>為替</h2>
+      <div class="row">
+        <label>為替レート<em>基準レート。出金手数料は上で別途控除</em></label>
+        <div class="field"><span>¥</span><input type="number" inputmode="decimal" id="fx" value="150"></div>
+      </div>
+      <div class="row">
+        <label>為替スプレッド<em>基準レートとの乖離。不明なら0</em></label>
+        <div class="field"><input type="number" inputmode="decimal" id="fxSpread" class="narrow" value="0"><span>%</span></div>
+      </div>
+
+      <h2>消費税還付</h2>
+      <div class="row">
+        <label>輸出免税の還付を利益に含める<em>還付可否は確認中</em></label>
+        <div class="tg"><input type="checkbox" id="refund"><i></i></div>
+      </div>
+
+      <h2>判定基準</h2>
+      <div class="row">
+        <label>目標利益率</label>
+        <div class="field"><input type="number" inputmode="decimal" id="targetMargin" class="narrow" value="20"><span>%</span></div>
+      </div>
+      <div class="row">
+        <label>最低時給</label>
+        <div class="field"><span>¥</span><input type="number" inputmode="numeric" id="targetHourly" value="3000"></div>
+      </div>
+      <button class="reset" id="reset">初期値に戻す</button>
+    </section>
+  </details>
+
+  <p class="note">
+    手数料の前提は「eBayトレカ手数料率」シートの設定値に合わせています。落札手数料は境目までの部分と超過部分で料率が変わる二段構造、消費税はeBay手数料に課税、Payoneer出金はそれらを引いた残額に適用、という順序です。為替レートはスプレッドを含まない基準レートを入れてください。着金額から逆算したレートを入れると、出金手数料を二重に引くことになります。消費税還付は可否が未確定のため初期値はオフです。
+  </p>
+</div>
+
+<script>
+(function(){
+  var FIELDS = ["price","shipCharged","cost","shipCost","packing","minutes",
+                "fvf1","fvf2","tier","fixedHigh","fixedLow","intlFee","adFee","adShare",
+                "taxRate","payoneer","fx","fxSpread","targetMargin","targetHourly","refund"];
+  var K_LAST = "ebay-profit:last", K_DEF = "ebay-profit:defaults", K_PRE = "ebay-profit:presets";
+
+  var factory = {};
+  FIELDS.forEach(function(id){
+    var el = document.getElementById(id);
+    factory[id] = el.type === "checkbox" ? el.checked : el.value;
+  });
+  var baseline = Object.assign({}, factory);
+  var presets = {};
+  var store = (function(){
+    if (window.storage){
+      return {
+        kind:"claude",
+        set:function(k,o){ return Promise.resolve(window.storage.set(k, JSON.stringify(o))); },
+        get:function(k){ return Promise.resolve(window.storage.get(k)).then(function(r){
+          return (r && r.value) ? JSON.parse(r.value) : null; }); }
+      };
+    }
+    try{
+      window.localStorage.setItem("__probe__","1");
+      window.localStorage.removeItem("__probe__");
+      return {
+        kind:"local",
+        set:function(k,o){ window.localStorage.setItem(k, JSON.stringify(o)); return Promise.resolve(); },
+        get:function(k){ var s = window.localStorage.getItem(k); return Promise.resolve(s ? JSON.parse(s) : null); }
+      };
+    }catch(e){}
+    return { kind:"none", set:function(){ return Promise.reject(); }, get:function(){ return Promise.reject(); } };
+  })();
+  var storageOK = store.kind !== "none";
+
+  function v(id){ var n = parseFloat(document.getElementById(id).value); return isFinite(n) ? n : 0; }
+  function on(id){ return document.getElementById(id).checked; }
+  function yen(n){ return Math.round(n).toLocaleString("ja-JP") + "円"; }
+  function usd(n){ return "$" + (Math.round(n*100)/100).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2}); }
+
+  function snapshot(){
+    var o = {};
+    FIELDS.forEach(function(id){
+      var el = document.getElementById(id);
+      o[id] = el.type === "checkbox" ? el.checked : el.value;
+    });
+    return o;
+  }
+  function apply(o){
+    FIELDS.forEach(function(id){
+      if (!(id in o)) return;
+      var el = document.getElementById(id);
+      if (el.type === "checkbox") el.checked = !!o[id]; else el.value = o[id];
+    });
+  }
+
+  function fees(revenueUsd){
+    var tier = v("tier");
+    var base = revenueUsd <= tier
+      ? revenueUsd * v("fvf1")/100
+      : tier * v("fvf1")/100 + (revenueUsd - tier) * v("fvf2")/100;
+    var fixed = revenueUsd > 10 ? v("fixedHigh") : v("fixedLow");
+    var fvf  = base + fixed;
+    var intl = revenueUsd * v("intlFee")/100;
+    var ads  = revenueUsd * v("adFee")/100 * v("adShare")/100;
+    var pre  = fvf + intl + ads;
+    var tax  = pre * v("taxRate")/100;
+    var ebay = pre + tax;
+    var afterEbay = revenueUsd - ebay;
+    var pay  = afterEbay * v("payoneer")/100;
+    var spread = (afterEbay - pay) * v("fxSpread")/100;
+    return { fvf:fvf, intl:intl, ads:ads, tax:tax, pay:pay, spread:spread, total: ebay + pay + spread };
+  }
+
+  function calc(priceUsd, costJpy){
+    var revenueUsd = priceUsd + v("shipCharged");
+    var f = fees(revenueUsd);
+    var fx = v("fx");
+    var otherCost = v("shipCost") + v("packing");
+    var refund = on("refund") ? (costJpy + v("packing")) * 10/110 : 0;
+    var payout = (revenueUsd - f.total) * fx;
+    return {
+      revenueUsd: revenueUsd, revenueJpy: revenueUsd * fx, f: f, payout: payout,
+      costJpy: costJpy + otherCost, refund: refund,
+      profit: payout + refund - costJpy - otherCost
+    };
+  }
+
+  function solveCost(targetProfit){
+    var a = calc(v("price"), 0).profit;
+    var b = calc(v("price"), 10000).profit;
+    var slope = (b - a) / 10000;
+    if (!slope) return NaN;
+    return (targetProfit - a) / slope;
+  }
+  function solvePrice(marginPct){
+    function g(p){
+      var r = calc(p, v("cost"));
+      return r.profit - r.revenueJpy * marginPct/100;
+    }
+    var lo = 0, hi = 100000;
+    if (g(hi) < 0) return NaN;
+    if (g(lo) > 0) return 0;
+    for (var i=0;i<70;i++){ var mid=(lo+hi)/2; if (g(mid)<0) lo=mid; else hi=mid; }
+    return hi;
+  }
+
+  function render(){
+    var r = calc(v("price"), v("cost"));
+    var margin = r.revenueJpy > 0 ? r.profit / r.revenueJpy * 100 : 0;
+    var invested = v("cost") + v("shipCost") + v("packing");
+    var roi = invested > 0 ? r.profit / invested * 100 : 0;
+    var mins = v("minutes");
+    var hourly = mins > 0 ? r.profit / (mins/60) : 0;
+
+    document.getElementById("profit").textContent = Math.round(r.profit).toLocaleString("ja-JP");
+    document.getElementById("margin").textContent = margin.toFixed(1) + "%";
+    document.getElementById("hourly").textContent = mins > 0 ? yen(hourly) : "—";
+    document.getElementById("roi").textContent = roi.toFixed(0) + "%";
+
+    var fx = v("fx");
+    function pct(a){ return r.revenueUsd > 0 ? (a / r.revenueUsd * 100).toFixed(2) + "%" : "—"; }
+    function put(id,a){ document.getElementById(id).textContent = "−" + yen(a * fx); }
+
+    document.getElementById("bdRevenue").textContent = yen(r.revenueJpy);
+    put("bdFvf", r.f.fvf);       document.getElementById("pctFvf").textContent = pct(r.f.fvf);
+    put("bdIntl", r.f.intl);     document.getElementById("pctIntl").textContent = pct(r.f.intl);
+    put("bdAds", r.f.ads);       document.getElementById("pctAds").textContent = pct(r.f.ads);
+    put("bdTax", r.f.tax);
+    put("bdPay", r.f.pay);       document.getElementById("pctPay").textContent = pct(r.f.pay);
+    put("bdSpread", r.f.spread); document.getElementById("pctSpread").textContent = pct(r.f.spread);
+    put("bdTotalFee", r.f.total);document.getElementById("pctTotal").textContent = pct(r.f.total);
+    document.getElementById("rowAds").style.display = r.f.ads > 0 ? "flex" : "none";
+    document.getElementById("rowSpread").style.display = r.f.spread > 0 ? "flex" : "none";
+
+    document.getElementById("bdPayout").textContent = yen(r.payout);
+    document.getElementById("bdCost").textContent = "−" + yen(r.costJpy);
+    document.getElementById("bdRefund").textContent = "+" + yen(r.refund);
+    document.getElementById("bdRefundRow").style.display = on("refund") ? "flex" : "none";
+    document.getElementById("bdProfit").textContent = yen(r.profit);
+
+    var tm = v("targetMargin");
+    var targetProfit = r.revenueJpy * tm/100;
+    var maxCost = solveCost(targetProfit), beCost = solveCost(0);
+    document.getElementById("maxCost").textContent = isFinite(maxCost) ? yen(Math.max(0,maxCost)) : "—";
+    document.getElementById("beCost").textContent  = isFinite(beCost)  ? yen(Math.max(0,beCost))  : "—";
+
+    var minPrice = solvePrice(tm), bePrice = solvePrice(0);
+    document.getElementById("minPrice").textContent = isFinite(minPrice) ? usd(minPrice) : "—";
+    document.getElementById("bePrice").textContent  = isFinite(bePrice)  ? usd(bePrice)  : "—";
+
+    document.getElementById("maxCostSub").textContent = "利益 " + yen(targetProfit);
+    document.getElementById("minPriceSub").textContent =
+      isFinite(minPrice) ? "利益 " + yen(calc(minPrice, v("cost")).profit) : "到達不可";
+
+    function gap(el, diff, fmt){
+      var node = document.getElementById(el);
+      if (diff >= 0){ node.className = ""; node.textContent = "余裕 " + fmt(diff); }
+      else { node.className = "warn"; node.textContent = "超過 " + fmt(-diff) + "・赤字 " + yen(Math.abs(r.profit)); }
+    }
+    gap("beCostSub", isFinite(beCost) ? beCost - v("cost") : 0, yen);
+    gap("bePriceSub", isFinite(bePrice) ? v("price") - bePrice : 0, usd);
+
+    var hourlyOk = mins <= 0 || hourly >= v("targetHourly");
+    var cls, label, sub;
+    if (r.profit <= 0){ cls="stop"; label="見送り"; sub="赤字"; }
+    else if (margin >= tm && hourlyOk){ cls="go"; label="出品"; sub="基準クリア"; }
+    else { cls="hold"; label="要検討"; sub = (margin < tm) ? "利益率不足" : "時給不足"; }
+    document.getElementById("slab").className = "slab-inner " + cls;
+    document.getElementById("verdict").textContent = label;
+    document.getElementById("verdictSub").textContent = sub;
+  }
+
+  // ---- 保存 ----
+  function say(msg, kind){
+    var el = document.getElementById("status");
+    el.textContent = msg;
+    el.className = "status" + (kind ? " " + kind : "");
+    if (msg) setTimeout(function(){ if (el.textContent === msg) { el.textContent=""; el.className="status"; } }, 3000);
+  }
+  function write(key, obj){
+    if (!storageOK) return Promise.reject();
+    try { return store.set(key, obj); } catch(e){ return Promise.reject(e); }
+  }
+  function read(key){
+    if (!storageOK) return Promise.reject();
+    try { return store.get(key); } catch(e){ return Promise.reject(e); }
+  }
+
+  var t;
+  function autosave(){
+    if (!storageOK) return;
+    clearTimeout(t);
+    t = setTimeout(function(){ write(K_LAST, snapshot()).catch(function(){}); }, 400);
+  }
+
+  function refreshPresetList(sel){
+    var s = document.getElementById("presetSelect");
+    var keep = sel || s.value;
+    s.innerHTML = '<option value="">保存した条件を選ぶ</option>';
+    Object.keys(presets).sort().forEach(function(name){
+      var o = document.createElement("option");
+      o.value = name; o.textContent = name;
+      s.appendChild(o);
+    });
+    if (keep && presets[keep]) s.value = keep;
+  }
+
+  FIELDS.forEach(function(id){
+    var el = document.getElementById(id);
+    el.addEventListener("input", function(){ render(); autosave(); });
+    el.addEventListener("change", function(){ render(); autosave(); });
+  });
+  document.querySelectorAll("input[type=number]").forEach(function(el){
+    el.addEventListener("focus", function(){ el.select(); });
+  });
+
+  document.getElementById("reset").addEventListener("click", function(){
+    apply(baseline); render(); autosave(); say("初期値に戻しました");
+  });
+  document.getElementById("pinDefaults").addEventListener("click", function(){
+    baseline = snapshot();
+    write(K_DEF, baseline).then(function(){ say("今の値を初期値にしました","ok"); })
+      .catch(function(){ say("この環境では保存できません","ng"); });
+  });
+  document.getElementById("presetSave").addEventListener("click", function(){
+    var nameEl = document.getElementById("presetName");
+    var name = nameEl.value.trim();
+    if (!name){ say("名前を入力してください","ng"); nameEl.focus(); return; }
+    presets[name] = snapshot();
+    refreshPresetList(name);
+    write(K_PRE, presets).then(function(){ nameEl.value=""; say("「"+name+"」を保存しました","ok"); })
+      .catch(function(){ say("この環境では保存できません","ng"); });
+  });
+  document.getElementById("presetLoad").addEventListener("click", function(){
+    var name = document.getElementById("presetSelect").value;
+    if (!name || !presets[name]){ say("条件を選んでください","ng"); return; }
+    apply(presets[name]); render(); autosave(); say("「"+name+"」を読み込みました","ok");
+  });
+  document.getElementById("presetDelete").addEventListener("click", function(){
+    var s = document.getElementById("presetSelect");
+    var name = s.value;
+    if (!name || !presets[name]){ say("条件を選んでください","ng"); return; }
+    delete presets[name];
+    refreshPresetList("");
+    write(K_PRE, presets).then(function(){ say("「"+name+"」を削除しました"); })
+      .catch(function(){ say("この環境では保存できません","ng"); });
+  });
+
+  document.getElementById("exportBtn").addEventListener("click", function(){
+    var box = document.getElementById("transfer");
+    box.value = JSON.stringify({ current: snapshot(), defaults: baseline, presets: presets });
+    box.focus(); box.select();
+    say("この文字列をコピーして、もう一方の端末に貼り付けてください","ok");
+  });
+  document.getElementById("importBtn").addEventListener("click", function(){
+    var box = document.getElementById("transfer");
+    var txt = box.value.trim();
+    if (!txt){ say("先に文字列を貼り付けてください","ng"); box.focus(); return; }
+    var data;
+    try { data = JSON.parse(txt); } catch(e){ say("文字列が壊れています。もう一度コピーし直してください","ng"); return; }
+    if (data.defaults) baseline = data.defaults;
+    if (data.presets) presets = data.presets;
+    if (data.current) apply(data.current);
+    refreshPresetList("");
+    render();
+    write(K_DEF, baseline).catch(function(){});
+    write(K_PRE, presets).catch(function(){});
+    autosave();
+    box.value = "";
+    say("取り込みました","ok");
+  });
+
+  render();
+
+  if (!storageOK){
+    say("この環境では保存できません（値は今回のみ有効）","ng");
+  } else {
+    read(K_DEF).then(function(d){ if (d) { baseline = d; apply(d); } })
+      .catch(function(){})
+      .then(function(){ return read(K_LAST).catch(function(){ return null; }); })
+      .then(function(l){ if (l) apply(l); render(); })
+      .then(function(){ return read(K_PRE).catch(function(){ return null; }); })
+      .then(function(p){ if (p) { presets = p; refreshPresetList(); } })
+      .catch(function(){});
+  }
+})();
+</script>
