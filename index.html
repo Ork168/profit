@@ -234,8 +234,7 @@
       <div class="row"><label>手数料への消費税</label><div class="field"><input type="number" inputmode="decimal" id="taxRate" class="narrow" value="10"><span>%</span></div></div>
       <div class="row"><label>Payoneer出金</label><div class="field"><input type="number" inputmode="decimal" id="payoneer" class="narrow" value="2"><span>%</span></div></div>
 
-      <h2>手間と送料</h2>
-      <div class="row"><label>国際送料<em>1件ごとの実費</em></label><div class="field"><span>¥</span><input type="number" inputmode="numeric" id="ebayShip" value="1600"></div></div>
+      <h2>手間</h2>
       <div class="row"><label>作業時間<em>撮影・出品・梱包・発送</em></label><div class="field"><input type="number" inputmode="numeric" id="ebayMin" class="narrow" value="15"><span>分</span></div></div>
     </section>
   </details>
@@ -283,12 +282,14 @@
   <details>
     <summary>共通の設定</summary>
     <section>
-      <h2>まとめ発送（委託2社で使用）</h2>
-      <div class="row"><label>1回の発送費用<em>米国への送料・保険</em></label><div class="field"><span>¥</span><input type="number" inputmode="numeric" id="batchCost" value="15000"></div></div>
-      <div class="row"><label>1回に送る枚数</label><div class="field"><input type="number" inputmode="numeric" id="batchQty" class="narrow" value="50"><span>枚</span></div></div>
+      <h2>国際送料</h2>
+      <div class="row"><label>1件あたり<em>3販路とも同額。2026年10月実績</em></label><div class="field"><span>¥</span><input type="number" inputmode="numeric" id="shipIntl" value="6425"></div></div>
 
       <h2>為替</h2>
       <div class="row"><label>為替レート<em>基準レート</em></label><div class="field"><span>¥</span><input type="number" inputmode="decimal" id="fx" value="150"></div></div>
+      <div class="row"><label>起動時に自動取得<em>通信できないときは手入力の値を使用</em></label><div class="tg"><input type="checkbox" id="fxAuto" checked><i></i></div></div>
+      <div class="pgroup"><button class="act" id="fxRefresh" style="flex:1">今すぐ更新</button></div>
+      <p class="status" id="fxStatus"></p>
       <div class="row"><label>為替スプレッド<em>基準との乖離。不明なら0</em></label><div class="field"><input type="number" inputmode="decimal" id="fxSpread" class="narrow" value="0"><span>%</span></div></div>
 
       <h2>消費税還付</h2>
@@ -303,18 +304,18 @@
   </details>
 
   <p class="note">
-    委託2社の料率は段階制で、落札額が下限を超えるとその段の率が適用されます。委託では国際送料をまとめ発送の枚数で按分し、作業時間も1枚あたりで換算しています。料率がeBay手数料を含むかどうかは各社の設定で切り替えてください。含まない場合はeBay手数料も別途差し引きます。年換算利回りは入金までの日数をもとにした概算で、実際の再投資の可否までは考慮していません。
+    委託2社の料率は段階制で、落札額が下限を超えるとその段の率が適用されます。国際送料は3販路とも1件あたり同額で計上しています。作業時間は販路ごとに個別設定です。料率がeBay手数料を含むかどうかは各社の設定で切り替えてください。含まない場合はeBay手数料も別途差し引きます。年換算利回りは入金までの日数をもとにした概算で、実際の再投資の可否までは考慮していません。
   </p>
 </div>
 
 <script>
 (function(){
   var NUMS = ["price","shipCharged","cost","packing",
-    "fvf1","fvf2","tier","fixedHigh","fixedLow","intlFee","adFee","adShare","taxRate","payoneer","ebayShip","ebayMin","ebayDays",
+    "fvf1","fvf2","tier","fixedHigh","fixedLow","intlFee","adFee","adShare","taxRate","payoneer","ebayMin","ebayDays",
     "pb_lo0","pb_r0","pb_lo1","pb_r1","pb_lo2","pb_r2","pb_lo3","pb_r3","pb_lo4","pb_r4","pb_lo5","pb_r5","pbPayout","pbMin","pbDays",
     "ps_lo0","ps_r0","ps_lo1","ps_r1","ps_lo2","ps_r2","ps_lo3","ps_r3","ps_lo4","ps_r4","ps_lo5","ps_r5","psMinFee","psFixed","psPayout","psMin","psDays",
-    "batchCost","batchQty","fx","fxSpread","targetMargin","targetHourly"];
-  var TOGS = ["pbInclusive","psInclusive","refund"];
+    "shipIntl","fx","fxSpread","targetMargin","targetHourly"];
+  var TOGS = ["pbInclusive","psInclusive","refund","fxAuto"];
   var FIELDS = NUMS.concat(TOGS);
   var K_LAST="ebay-profit:last", K_DEF="ebay-profit:defaults", K_PRE="ebay-profit:presets";
 
@@ -363,7 +364,7 @@
   ];
 
   function calc(key, priceUsd, costJpy){
-    var fx=v("fx"), rows=[], feeUsd=0, fixedJpy=0, shipJpy=0, minutes=0, days=0, rev;
+    var fx=v("fx"), rows=[], feeUsd=0, fixedJpy=0, shipJpy=v("shipIntl"), minutes=0, days=0, rev;
     if (key==="ebay"){
       rev = priceUsd + v("shipCharged");
       var f=ebayFeeUsd(rev);
@@ -371,7 +372,7 @@
       var spr=(rev-f.sum-pay)*v("fxSpread")/100;
       feeUsd = f.sum+pay+spr;
       rows=[["落札手数料",f.fvf],["海外決済",f.intl],["広告費",f.ads],["手数料の消費税",f.tax],["Payoneer出金",pay],["為替スプレッド",spr]];
-      shipJpy=v("ebayShip"); minutes=v("ebayMin"); days=v("ebayDays");
+      minutes=v("ebayMin"); days=v("ebayDays");
     } else {
       rev = priceUsd;
       var pre = key==="pb" ? "pb" : "ps";
@@ -389,7 +390,6 @@
       rows.push(["受取手数料",payout]);
       rows.push(["為替スプレッド",spread]);
       feeUsd = fee+payout+spread;
-      shipJpy = v("batchQty")>0 ? v("batchCost")/v("batchQty") : 0;
       if (key==="ps") fixedJpy = v("psFixed");
       minutes = key==="pb" ? v("pbMin") : v("psMin");
       days    = key==="pb" ? v("pbDays") : v("psDays");
@@ -486,7 +486,7 @@
     line("入金額", yen(sel.payoutJpy));
     line("仕入値", "−"+yen(v("cost")));
     line("梱包・国内送料", "−"+yen(v("packing")), "indent");
-    line(sel.key==="ebay"?"国際送料":"国際送料（按分）", "−"+yen(sel.shipJpy), "indent");
+    line("国際送料", "−"+yen(sel.shipJpy), "indent");
     if (sel.fixedJpy>0) line("固定費", "−"+yen(sel.fixedJpy), "indent");
     if (sel.refund>0) line("消費税還付", "+"+yen(sel.refund));
     line("手取り利益", yen(sel.profit), "total");
@@ -573,14 +573,38 @@
     b.value=""; say("取り込みました","ok");
   });
 
+  function fxLabel(m,k){ var e=document.getElementById("fxStatus"); e.textContent=m; e.className="status"+(k?" "+k:""); }
+  function fetchRate(){
+    var srcs=[
+      {u:"https://api.frankfurter.app/latest?from=USD&to=JPY",
+       pick:function(j){ return [j.rates&&j.rates.JPY, j.date, "ECB"]; }},
+      {u:"https://open.er-api.com/v6/latest/USD",
+       pick:function(j){ return [j.rates&&j.rates.JPY, j.time_last_update_utc, "er-api"]; }}
+    ];
+    fxLabel("取得中…");
+    (function next(i){
+      if(i>=srcs.length){ fxLabel("取得できませんでした。手入力の値を使います","ng"); return; }
+      fetch(srcs[i].u).then(function(r){ return r.json(); }).then(function(j){
+        var g=srcs[i].pick(j);
+        if(!g[0]) throw new Error("no rate");
+        var rate=Math.round(g[0]*100)/100;
+        document.getElementById("fx").value=rate;
+        render(); autosave();
+        fxLabel("取得 "+rate+"円／ドル（"+g[2]+" "+String(g[1]).slice(0,16)+"）","ok");
+      }).catch(function(){ next(i+1); });
+    })(0);
+  }
+  document.getElementById("fxRefresh").addEventListener("click", fetchRate);
+
   render();
-  if(!storageOK){ say("この環境では保存できません（値は今回のみ有効）","ng"); }
+  if(!storageOK){ say("この環境では保存できません（値は今回のみ有効）","ng"); if(on("fxAuto")) fetchRate(); }
   else {
     read(K_DEF).then(function(d){ if(d){ baseline=d; apply(d);} }).catch(function(){})
       .then(function(){ return read(K_LAST).catch(function(){return null;}); })
       .then(function(l){ if(l) apply(l); render(); })
       .then(function(){ return read(K_PRE).catch(function(){return null;}); })
       .then(function(p){ if(p){ presets=p; refreshPresetList(); } })
+      .then(function(){ if(on("fxAuto")) fetchRate(); })
       .catch(function(){});
   }
 })();
