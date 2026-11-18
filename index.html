@@ -87,6 +87,19 @@
   .pct{font-style:normal;font-size:12px;color:var(--ink-2);font-weight:400}
   .bd div.subtotal .pct{color:var(--stop);font-weight:600;font-size:12.5px}
 
+  /* Reverse auction-price calculator */
+  .reverse-help{font-size:12px;line-height:1.6;color:var(--ink-2);margin:8px 0}
+  .reverse-results{display:grid;gap:10px;margin:10px 0 2px}
+  .reverse-card{border:1px solid var(--line);border-radius:11px;background:#fbfcfd;padding:11px 12px}
+  .reverse-card.sel{border:2px solid var(--ink);padding:10px 11px;background:#fff}
+  .reverse-title{font-size:14px;font-weight:700;display:flex;justify-content:space-between;gap:8px}
+  .reverse-title span{font-size:11px;font-weight:400;color:var(--ink-2);text-align:right}
+  .reverse-amount{font-size:25px;font-weight:700;line-height:1.35;font-variant-numeric:tabular-nums;margin-top:2px}
+  .reverse-meta{font-size:12px;color:var(--ink-2);line-height:1.65}
+  .reverse-meta strong{color:var(--ink);font-weight:600}
+  .reverse-choose{width:100%;margin-top:8px;border:1px solid var(--line);border-radius:9px;background:#fff;padding:9px 8px;color:var(--ink);font:inherit;font-size:13px;font-weight:600;cursor:pointer}
+  .reverse-choose:disabled{color:var(--ink-2);background:#eef1f4;cursor:not-allowed}
+
   .limits{display:flex;gap:10px;margin-top:2px}
   .limit{flex:1;border:1px solid var(--line);border-radius:11px;padding:9px 11px;background:#fbfcfd}
   .limit p{margin:0;font-size:11.5px;color:var(--ink-2)}
@@ -202,6 +215,21 @@
       <label for="duty125">関税 12.5%<em>ON：想定落札額の12.5%を売り手負担で控除（3販路共通）</em></label>
       <div class="tg"><input type="checkbox" id="duty125" aria-label="関税12.5％を計算に含める"><i></i></div>
     </div>
+  </section>
+
+  <section id="reverseSection">
+    <h2>仕入価格から最低販売額を逆算</h2>
+    <div class="row">
+      <label for="minProfitJpy">確保したい最低利益<em>手数料・国際送料・関税などを控除した後の利益</em></label>
+      <div class="field"><span>¥</span><input type="number" min="0" step="1000" inputmode="numeric" id="minProfitJpy" value="10000"></div>
+    </div>
+    <div class="row">
+      <label for="safetyPct">安全余裕率<em>最低利益達成価格に上乗せする割合</em></label>
+      <div class="field"><input type="number" min="0" step="1" inputmode="decimal" id="safetyPct" class="narrow" value="10"><span>%</span></div>
+    </div>
+    <p class="reverse-help">現在の仕入値・為替・費用・関税スイッチから、3販路ごとの採算下限を自動計算します。</p>
+    <div id="reverseResults" class="reverse-results" aria-live="polite"></div>
+    <p class="reverse-help">「損益分岐点」は利益0円の境目、「最低利益達成」は指定利益を確保する下限です。「安全余裕込み」は下限に指定割合を上乗せした額です。実際の落札価格を予測・保証するものではありません。</p>
   </section>
 
   <section>
@@ -363,7 +391,7 @@
     "fvf1","fvf2","tier","fixedHigh","fixedLow","intlFee","adFee","adShare","taxRate","payoneer","ebayMin","ebayDays",
     "pb_lo0","pb_r0","pb_lo1","pb_r1","pb_lo2","pb_r2","pb_lo3","pb_r3","pb_lo4","pb_r4","pb_lo5","pb_r5","pbPayout","pbMin","pbDays",
     "ps_lo0","ps_r0","ps_lo1","ps_r1","ps_lo2","ps_r2","ps_lo3","ps_r3","ps_lo4","ps_r4","ps_lo5","ps_r5","psMinFee","psFixed","psPayout","psMin","psDays",
-    "shipIntl","fx","fxSpread","targetMargin","targetHourly"];
+    "shipIntl","fx","fxSpread","targetMargin","targetHourly","minProfitJpy","safetyPct"];
   var TOGS = ["pbInclusive","psInclusive","refund","fxAuto","duty125"];
   var FIELDS = NUMS.concat(TOGS);
   var K_LAST="ebay-profit:last", K_DEF="ebay-profit:defaults", K_PRE="ebay-profit:presets";
@@ -476,8 +504,69 @@
     return hi;
   }
 
+  // Finds the minimum auction price for an absolute post-expense profit goal.
+  // Uses calc() so tiered selling fees, 12.5% duty, and tax-refund settings match the main app.
+  function solvePriceForProfit(key, profitJpy){
+    if (v("fx")<=0 || !isFinite(profitJpy)) return NaN;
+    function gap(p){ return calc(key,p,v("cost")).profit-profitJpy; }
+    if (gap(0)>=0) return 0;
+    var lo=0, hi=Math.max(1,Math.max(0,v("cost"))/v("fx"));
+    for (var n=0;n<40 && gap(hi)<0;n++){
+      hi*=2;
+      if (hi>10000000) return NaN;
+    }
+    if (gap(hi)<0) return NaN;
+    for (var i=0;i<65;i++){
+      var mid=(lo+hi)/2;
+      if (gap(mid)<0) lo=mid;
+      else hi=mid;
+    }
+    return hi;
+  }
+  function roundUpPrice(key,priceUsd,profitJpy){
+    if (!isFinite(priceUsd)) return NaN;
+    var amount=Math.ceil((Math.max(0,priceUsd)-1e-9)*100)/100;
+    // Ensure the displayed cent-rounded price actually meets the profit goal.
+    for (var i=0;i<101 && calc(key,amount,v("cost")).profit<profitJpy-0.00001;i++){
+      amount=Math.round(amount*100+1)/100;
+    }
+    return calc(key,amount,v("cost")).profit>=profitJpy-0.00001 ? amount : NaN;
+  }
+  function renderReverse(){
+    var target=Math.max(1,v("minProfitJpy")), extra=Math.max(0,v("safetyPct"));
+    var box=document.getElementById("reverseResults"); box.innerHTML="";
+    CH.forEach(function(ch){
+      var rawBreak=solvePriceForProfit(ch.key,0);
+      var rawTarget=solvePriceForProfit(ch.key,target);
+      var breakPrice=roundUpPrice(ch.key,rawBreak,0);
+      var targetPrice=roundUpPrice(ch.key,rawTarget,target);
+      var buffered=isFinite(targetPrice) ?
+        roundUpPrice(ch.key,targetPrice*(1+extra/100),target) : NaN;
+      var gain=isFinite(buffered)?calc(ch.key,buffered,v("cost")).profit:NaN;
+      var ok=isFinite(buffered) && isFinite(breakPrice) && isFinite(targetPrice);
+      var item=document.createElement("div");
+      item.className="reverse-card"+(ch.key===selected?" sel":"");
+      item.innerHTML='<div class="reverse-title">'+ch.name+'<span>安全余裕 +'+extra.toLocaleString("ja-JP")+'%</span></div>'+
+        '<div class="reverse-amount">'+(ok?usd(buffered):"計算不可")+'</div>'+
+        '<div class="reverse-meta">損益分岐点 <strong>'+(isFinite(breakPrice)?usd(breakPrice):"—")+'</strong> ／ 最低利益達成 <strong>'+(isFinite(targetPrice)?usd(targetPrice):"—")+'</strong></div>'+
+        '<div class="reverse-meta">安全余裕込みの試算利益 <strong>'+(ok?yen(gain):"—")+'</strong></div>';
+      var button=document.createElement("button");
+      button.type="button"; button.className="reverse-choose"; button.disabled=!ok;
+      button.textContent="この価格を想定落札額に反映";
+      button.addEventListener("click",function(){
+        if(!ok) return;
+        document.getElementById("price").value=buffered.toFixed(2);
+        selected=ch.key;
+        render(); autosave();
+        document.getElementById("price").scrollIntoView({behavior:"smooth",block:"center"});
+      });
+      item.appendChild(button); box.appendChild(item);
+    });
+  }
+
   function render(){
     var results = CH.map(function(c){ var r=calc(c.key, v("price"), v("cost")); r.name=c.name; return r; });
+    renderReverse();
     var best = results.reduce(function(a,b){ return b.profit>a.profit?b:a; });
     var sorted = results.slice().sort(function(a,b){ return b.profit-a.profit; });
 
@@ -618,7 +707,7 @@
     var b=document.getElementById("transfer"), txt=b.value.trim();
     if(!txt){ say("先に文字列を貼り付けてください","ng"); b.focus(); return; }
     var d; try{ d=JSON.parse(txt); }catch(e){ say("文字列が壊れています","ng"); return; }
-    if(d.defaults) baseline=d.defaults;
+    if(d.defaults) baseline=Object.assign({},factory,d.defaults);
     if(d.presets) presets=d.presets;
     if(d.current) apply(d.current);
     refreshPresetList(""); render();
@@ -652,7 +741,7 @@
   render();
   if(!storageOK){ say("この環境では保存できません（値は今回のみ有効）","ng"); if(on("fxAuto")) fetchRate(); }
   else {
-    read(K_DEF).then(function(d){ if(d){ baseline=d; apply(d);} }).catch(function(){})
+    read(K_DEF).then(function(d){ if(d){ baseline=Object.assign({},factory,d); apply(d);} }).catch(function(){})
       .then(function(){ return read(K_LAST).catch(function(){return null;}); })
       .then(function(l){ if(l) apply(l); render(); })
       .then(function(){ return read(K_PRE).catch(function(){return null;}); })
