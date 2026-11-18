@@ -87,6 +87,29 @@
   .pct{font-style:normal;font-size:12px;color:var(--ink-2);font-weight:400}
   .bd div.subtotal .pct{color:var(--stop);font-weight:600;font-size:12.5px}
 
+  /* Side-by-side forecast vs actual-auction-price comparison */
+  .compare-results{display:grid;gap:12px;margin:10px 0}
+  .compare-channel{padding:10px;border:1px solid var(--line);border-radius:11px;background:#fff}
+  .compare-channel.sel{border:2px solid var(--ink);padding:9px}
+  .compare-heading{font-weight:700;font-size:14px;margin-bottom:8px}
+  .compare-heading em{font-size:11px;font-style:normal;color:var(--ink-2);font-weight:500;margin-left:6px}
+  .compare-columns{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px}
+  .compare-box{border:1px solid var(--line);border-radius:9px;padding:9px 9px 8px;min-width:0;background:#fbfcfd}
+  .compare-box.actual{background:#f4f7fa}
+  .compare-label{font-size:12px;font-weight:700;color:var(--ink-2)}
+  .compare-price{font-size:15px;font-weight:600;line-height:1.35;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+  .compare-profit{font-size:clamp(15px,4.1vw,21px);font-weight:700;line-height:1.35;margin:6px 0 5px;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+  .compare-profit.loss{color:var(--stop)}
+  .compare-stat{display:flex;justify-content:space-between;gap:4px;font-size:11.5px;line-height:1.7;color:var(--ink-2)}
+  .compare-stat b{font-weight:600;color:var(--ink);text-align:right;font-variant-numeric:tabular-nums}
+  .compare-delta{margin:8px 2px 0;padding-top:7px;border-top:1px solid #eef1f4;display:flex;justify-content:space-between;align-items:flex-start;gap:8px;flex-wrap:wrap;font-size:12.5px}
+  .compare-delta strong{font-size:14px;font-variant-numeric:tabular-nums}
+  .compare-positive{color:var(--go)}
+  .compare-negative{color:var(--stop)}
+  .compare-pending{font-size:12px;color:var(--ink-2)}
+  .compare-note{font-size:12px;color:var(--ink-2);margin:8px 0 2px;line-height:1.6}
+  button.clear-actual{font:inherit;font-size:12px;padding:7px 8px;border:1px solid var(--line);border-radius:8px;background:#fbfcfd;color:var(--ink-2);cursor:pointer}
+
   /* Reverse auction-price calculator */
   .reverse-help{font-size:12px;line-height:1.6;color:var(--ink-2);margin:8px 0}
   .reverse-results{display:grid;gap:10px;margin:10px 0 2px}
@@ -200,6 +223,10 @@
       <div class="field"><span>$</span><input type="number" inputmode="decimal" id="price" value="300"></div>
     </div>
     <div class="row">
+      <label for="actualPrice">実際の落札額<em>落札後に入力。未入力なら比較は保留</em></label>
+      <div class="field"><span>$</span><input type="number" min="0" step="0.01" inputmode="decimal" id="actualPrice" placeholder="未入力"><button type="button" class="clear-actual" id="clearActual">消去</button></div>
+    </div>
+    <div class="row">
       <label>買い手が払う送料<em>eBay自社のみ。無料なら0</em></label>
       <div class="field"><span>$</span><input type="number" inputmode="decimal" id="shipCharged" value="0"></div>
     </div>
@@ -217,6 +244,13 @@
     </div>
   </section>
 
+  <section id="compareSection">
+    <h2>想定 vs 実際の落札額｜利益比較</h2>
+    <p class="compare-note" id="compareHint">実際の落札額を入力すると、各販路の利益・利益率・ROI・手数料・関税を横並びで比較します。</p>
+    <div id="compareResults" class="compare-results" aria-live="polite"></div>
+    <p class="compare-note">右側も現在の為替・手数料・送料・関税・還付設定を使った再試算です。実際の入金額や確定利益ではありません。eBayの買い手負担送料は左右同額としています。</p>
+  </section>
+
   <section id="reverseSection">
     <h2>仕入価格から最低販売額を逆算</h2>
     <div class="row">
@@ -229,7 +263,7 @@
     </div>
     <p class="reverse-help">現在の仕入値・為替・費用・関税スイッチから、3販路ごとの採算下限を自動計算します。</p>
     <div id="reverseResults" class="reverse-results" aria-live="polite"></div>
-    <p class="reverse-help">「損益分岐点」は利益0円の境目、「最低利益達成」は指定利益を確保する下限です。「安全余裕込み」は下限に指定割合を上乗せした額です。実際の落札価格を予測・保証するものではありません。</p>
+    <p class="reverse-help">計算順序：①最低利益を確保できる落札額を逆算 → ②その金額に安全余裕率を上乗せ。「安全余裕率10%」は価格への10%上乗せであり、売価が10%下落しても利益を保証する意味ではありません。オークション落札価格を予測・保証するものではありません。</p>
   </section>
 
   <section>
@@ -387,7 +421,7 @@
 
 <script>
 (function(){
-  var NUMS = ["price","shipCharged","cost","packing",
+  var NUMS = ["price","actualPrice","shipCharged","cost","packing",
     "fvf1","fvf2","tier","fixedHigh","fixedLow","intlFee","adFee","adShare","taxRate","payoneer","ebayMin","ebayDays",
     "pb_lo0","pb_r0","pb_lo1","pb_r1","pb_lo2","pb_r2","pb_lo3","pb_r3","pb_lo4","pb_r4","pb_lo5","pb_r5","pbPayout","pbMin","pbDays",
     "ps_lo0","ps_r0","ps_lo1","ps_r1","ps_lo2","ps_r2","ps_lo3","ps_r3","ps_lo4","ps_r4","ps_lo5","ps_r5","psMinFee","psFixed","psPayout","psMin","psDays",
@@ -533,7 +567,7 @@
     return calc(key,amount,v("cost")).profit>=profitJpy-0.00001 ? amount : NaN;
   }
   function renderReverse(){
-    var target=Math.max(1,v("minProfitJpy")), extra=Math.max(0,v("safetyPct"));
+    var target=Math.max(0,v("minProfitJpy")), extra=Math.max(0,v("safetyPct"));
     var box=document.getElementById("reverseResults"); box.innerHTML="";
     CH.forEach(function(ch){
       var rawBreak=solvePriceForProfit(ch.key,0);
@@ -564,9 +598,63 @@
     });
   }
 
+  function renderComparison(results){
+    var raw=document.getElementById("actualPrice").value.trim();
+    var filled=raw!=="";
+    var actualUsd=Number(raw);
+    var valid=filled && isFinite(actualUsd) && actualUsd>=0;
+    var target=Math.max(0,v("minProfitJpy"));
+    var hint=document.getElementById("compareHint");
+    hint.textContent=!filled ? "実際の落札額を入力すると、各販路の損益を横並びで比較できます。" :
+      (!valid ? "実際の落札額は0以上の数値で入力してください。" :
+       "左＝想定落札額ベース／右＝実際の落札額ベース。利益の差と最低利益目標の達成状況を表示します。");
+    hint.className="compare-note"+(filled&&!valid?" compare-negative":"");
+    var box=document.getElementById("compareResults");
+    box.innerHTML="";
+    function oneColumn(label,price,r,actual){
+      var body='<div class="compare-box'+(actual?' actual':'')+'">'+
+        '<div class="compare-label">'+label+'</div>'+
+        '<div class="compare-price">'+(r?usd(price):"未入力")+'</div>';
+      if(!r) return body+'<div class="compare-profit">—</div><div class="compare-pending">落札額を入力すると表示します</div></div>';
+      return body+
+        '<div class="compare-profit'+(r.profit<0?' loss':'')+'">'+yen(r.profit)+'</div>'+
+        '<div class="compare-stat"><span>利益率</span><b>'+r.margin.toFixed(1)+'%</b></div>'+
+        '<div class="compare-stat"><span>ROI</span><b>'+r.roi.toFixed(1)+'%</b></div>'+
+        '<div class="compare-stat"><span>手数料</span><b>'+yen(r.feeJpy)+'</b></div>'+
+        '<div class="compare-stat"><span>関税</span><b>'+yen(r.dutyJpy)+'</b></div>'+
+        '</div>';
+    }
+    results.forEach(function(forecast){
+      var actual=valid?calc(forecast.key,actualUsd,v("cost")):null;
+      var node=document.createElement("div");
+      node.className="compare-channel"+(forecast.key===selected?" sel":"");
+      node.innerHTML='<div class="compare-heading">'+forecast.name+(forecast.key===selected?'<em>選択中の販路</em>':'')+'</div>'+
+        '<div class="compare-columns">'+oneColumn("想定",v("price"),forecast,false)+
+        oneColumn("実際の落札額で試算",actualUsd,actual,true)+'</div>';
+      var delta=document.createElement("div");
+      delta.className="compare-delta";
+      if(actual){
+        var diff=actual.profit-forecast.profit;
+        var gain=(diff>=0?"+":"−")+yen(Math.abs(diff));
+        var priceGap=actualUsd-v("price");
+        var saleChange=(priceGap>=0?"+":"−")+usd(Math.abs(priceGap));
+        var meets=actual.profit>=target;
+        delta.innerHTML='<div>利益差 <strong class="'+(diff>=0?'compare-positive':'compare-negative')+'">'+gain+
+          '</strong><div class="compare-pending">落札額差 '+saleChange+'</div></div>'+
+          '<div class="'+(meets?'compare-positive':'compare-negative')+'">'+
+          '最低利益 '+yen(target)+'<div><strong>'+(meets?'達成':'未達')+'</strong></div></div>';
+      } else {
+        delta.innerHTML='<span class="compare-pending">予想との差：'+(filled&&!valid?'入力値を確認してください':'実際の落札額が未入力')+'</span>';
+      }
+      node.appendChild(delta);
+      box.appendChild(node);
+    });
+  }
+
   function render(){
     var results = CH.map(function(c){ var r=calc(c.key, v("price"), v("cost")); r.name=c.name; return r; });
     renderReverse();
+    renderComparison(results);
     var best = results.reduce(function(a,b){ return b.profit>a.profit?b:a; });
     var sorted = results.slice().sort(function(a,b){ return b.profit-a.profit; });
 
@@ -601,7 +689,7 @@
     else { cls="hold"; label=sel.name; sub=(sel.margin<tm)?"利益率不足":"時給不足"; }
     document.getElementById("slab").className="slab-inner "+cls;
     document.getElementById("verdict").textContent=label;
-    document.getElementById("verdictSub").textContent=sub;
+    document.getElementById("verdictSub").textContent=sub+"（想定）";
     document.getElementById("profit").textContent=Math.round(sel.profit).toLocaleString("ja-JP");
     document.getElementById("margin").textContent=sel.margin.toFixed(1)+"%";
     document.getElementById("hourly").textContent=sel.minutes>0?yen(sel.hourly):"—";
@@ -610,7 +698,7 @@
       sel.key===best.key ? "" : "最有利の"+best.name+"より "+yen(best.profit-sel.profit)+" 少ない";
 
     // breakdown of selected
-    document.getElementById("bdTitle").textContent = sel.name+"の内訳";
+    document.getElementById("bdTitle").textContent = sel.name+"の内訳（想定）";
     var fx=v("fx"), bd=document.getElementById("bd"); bd.innerHTML="";
     function line(label,val,cls2,pctTxt){
       var d=document.createElement("div");
@@ -675,6 +763,10 @@
     e.addEventListener("change",function(){ render(); autosave(); });
   });
   document.querySelectorAll("input[type=number]").forEach(function(e){ e.addEventListener("focus",function(){ e.select(); }); });
+  document.getElementById("clearActual").addEventListener("click",function(){
+    document.getElementById("actualPrice").value="";
+    render(); autosave();
+  });
 
   document.getElementById("reset").addEventListener("click",function(){ apply(baseline); render(); autosave(); say("初期値に戻しました"); });
   document.getElementById("pinDefaults").addEventListener("click",function(){
