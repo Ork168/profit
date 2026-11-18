@@ -198,6 +198,10 @@
       <label>梱包・国内送料<em>資材、仕入の送料</em></label>
       <div class="field"><span>¥</span><input type="number" inputmode="numeric" id="packing" value="250"></div>
     </div>
+    <div class="row">
+      <label for="duty125">関税 12.5%<em>ON：想定落札額の12.5%を売り手負担で控除（3販路共通）</em></label>
+      <div class="tg"><input type="checkbox" id="duty125" aria-label="関税12.5％を計算に含める"><i></i></div>
+    </div>
   </section>
 
   <section>
@@ -350,6 +354,7 @@
   <p class="note">
     委託2社の料率は段階制で、落札額が下限を超えるとその段の率が適用されます。国際送料は3販路とも1件あたり同額で計上しています。作業時間は販路ごとに個別設定です。料率がeBay手数料を含むかどうかは各社の設定で切り替えてください。含まない場合はeBay手数料も別途差し引きます。年換算利回りは入金までの日数をもとにした概算で、実際の再投資の可否までは考慮していません。
   </p>
+  <p class="note">関税12.5%は比較用の試算です。ONでは想定落札額（買い手が払う送料を除く）を仮の課税価格とし、売り手が負担する前提で計算します。実際の関税率・課税価格・負担者は輸入条件や通関申告によって異なります。</p>
 </div>
 
 <script>
@@ -359,7 +364,7 @@
     "pb_lo0","pb_r0","pb_lo1","pb_r1","pb_lo2","pb_r2","pb_lo3","pb_r3","pb_lo4","pb_r4","pb_lo5","pb_r5","pbPayout","pbMin","pbDays",
     "ps_lo0","ps_r0","ps_lo1","ps_r1","ps_lo2","ps_r2","ps_lo3","ps_r3","ps_lo4","ps_r4","ps_lo5","ps_r5","psMinFee","psFixed","psPayout","psMin","psDays",
     "shipIntl","fx","fxSpread","targetMargin","targetHourly"];
-  var TOGS = ["pbInclusive","psInclusive","refund","fxAuto"];
+  var TOGS = ["pbInclusive","psInclusive","refund","fxAuto","duty125"];
   var FIELDS = NUMS.concat(TOGS);
   var K_LAST="ebay-profit:last", K_DEF="ebay-profit:defaults", K_PRE="ebay-profit:presets";
 
@@ -439,13 +444,16 @@
       days    = key==="pb" ? v("pbDays") : v("psDays");
     }
     var payoutJpy=(rev-feeUsd)*fx;
-    var costTotal = costJpy + v("packing") + shipJpy + fixedJpy;
+    // 12.5% is a seller-borne scenario applied to the assumed goods value.
+    // Buyer-paid shipping is excluded; actual customs value can differ.
+    var dutyJpy = on("duty125") ? Math.max(0, priceUsd)*fx*0.125 : 0;
+    var costTotal = costJpy + v("packing") + shipJpy + fixedJpy + dutyJpy;
     var refund = on("refund") ? (costJpy+v("packing"))*10/110 : 0;
     var profit = payoutJpy + refund - costTotal;
     var revJpy = rev*fx;
     return {
       key:key, rev:rev, revJpy:revJpy, rows:rows, feeUsd:feeUsd, feeJpy:feeUsd*fx,
-      payoutJpy:payoutJpy, shipJpy:shipJpy, fixedJpy:fixedJpy, costTotal:costTotal,
+      payoutJpy:payoutJpy, shipJpy:shipJpy, fixedJpy:fixedJpy, dutyJpy:dutyJpy, costTotal:costTotal,
       refund:refund, profit:profit, minutes:minutes, days:days,
       margin: revJpy>0 ? profit/revJpy*100 : 0,
       roi: costTotal>0 ? profit/costTotal*100 : 0,
@@ -531,6 +539,7 @@
     line("仕入値", "−"+yen(v("cost")));
     line("梱包・国内送料", "−"+yen(v("packing")), "indent");
     line("国際送料", "−"+yen(sel.shipJpy), "indent");
+    if (on("duty125")) line("関税（12.5%）", "−"+yen(sel.dutyJpy), "indent");
     if (sel.fixedJpy>0) line("固定費", "−"+yen(sel.fixedJpy), "indent");
     if (sel.refund>0) line("消費税還付", "+"+yen(sel.refund));
     line("手取り利益", yen(sel.profit), "total");
